@@ -8,6 +8,60 @@ def linhas():
 # A estrutura de controle 'if' recebe condições; 
 # A estrutura 'and' delimita que ambas as condições tenham que ser atendidas para seguir os comandos.
 # A estrutura 'else' delimita que em condições adversas às mencionadas, certos comandos sejam acionados.
+
+def verTabela():
+    print('Não implementado')
+
+def inserirDados():
+    print('Não implementado')
+
+def apagarDados():
+    print('Não implementado')
+
+def opcaoEscolhida(opcoes):
+    print()
+    opcoesValidas = []
+    posicao = 0
+    while posicao < len(opcoes):
+        print(posicao + 1, ') ', opcoes[posicao], sep='')
+        opcoesValidas.append(str(posicao + 1))
+        posicao += 1
+    opcao = input("Escolha uma opção: ")
+    if opcao in opcoesValidas:
+        return int(opcao)
+    else:
+        print("Opção inválida.")
+        return 0
+
+opcoes = [
+    "Ver tabela",
+    "Inserir dados",
+    "Apagar dados",
+    "Sair"
+]
+
+opcao = 0
+
+while opcao != 4:
+    opcao = opcaoEscolhida(opcoes)
+    if opcao == 1:
+        verTabela()
+    elif opcao == 2:
+        inserirDados()
+    elif opcao == 3:
+        apagarDados()
+    elif opcao == 4:
+        break\
+
+while True:
+    try:
+        linhas()
+        primary_key = int(input('Insira o código do produto: '))                            #PK
+        break
+    except ValueError:
+        linhas()
+        print('Erro! Você deve inserir o código do produto usando valores numéricos.')
+
 while True:
     linhas()
     product_name = input('Insira o nome do produto: ')                                      #PN
@@ -18,14 +72,6 @@ while True:
         linhas()
         print('Erro! Você deve dar um nome e uma descrição ao produto a ser calculado, para isso você deve inserir pelo menos um caracter.')
 
-while True:
-    try:
-        linhas()
-        primary_key = int(input('Insira o código do produto: '))                            #PK
-        break
-    except ValueError:
-        linhas()
-        print('Erro! Você deve inserir o código do produto usando valores numéricos.')
 
 while True:
     try:
@@ -75,7 +121,7 @@ for item in tabela_valores:
 
 tabela_lucros = [
     ['Classificação', 'Lucro'],
-    ['Alto', '> 20%'],
+    ['Alto', '>  20%'],
     ['Médio', '>  10% ; <= 20%'],
     ['Baixo', '>  0% ; <= 10%'],
     ['Equilíbrio', '=  0%'],
@@ -110,3 +156,4 @@ linhas()
 print('O lucro do produto {} é classificado como {}.'.format(product_name.capitalize(), lucro))
 
 linhas()
+
