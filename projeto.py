@@ -62,7 +62,6 @@ tabela_valores = [
     ['Comissão de vendas', 'R${:.2f}'.format(commision_reais),   '{:.2f}%'.format(commision)],
     ['Impostos',           'R${:.2f}'.format(taxes_reais),       '{:.2f}%'.format(taxes)],
     ['Outros custos',      'R${:.2f}'.format(other_costs_reais), '{:.2f}%'.format(other_costs)],
-    ['Rentabilidade',      'R${:.2f}'.format(rentability_reais), '{:.2f}%'.format(rentability)],
 ]
 
 linhas()
@@ -75,7 +74,7 @@ for item in tabela_valores:
 
 tabela_lucros = [
     ['Classificação', 'Lucro'],
-    ['Alto', '> 20%'],
+    ['Alto', '>  20%'],
     ['Médio', '>  10% ; <= 20%'],
     ['Baixo', '>  0% ; <= 10%'],
     ['Equilíbrio', '=  0%'],
