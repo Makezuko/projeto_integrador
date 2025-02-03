@@ -5,7 +5,6 @@ import mysql.connector
 from dotenv import load_dotenv
 import os
 
-# Carregar as variáveis de ambiente do arquivo .env
 load_dotenv()
 
 def linhas():
@@ -199,7 +198,6 @@ def exibirDetalhesProduto(produto):
     tree.configure(yscroll=scrollbar.set)
     scrollbar.pack(side='right', fill='y')
 
-    # Adicionar evento de clique na rentabilidade
     def rentabilidadeClick(event):
         item = tree.selection()
         if item:
@@ -210,7 +208,6 @@ def exibirDetalhesProduto(produto):
 
     tree.bind("<Double-1>", rentabilidadeClick)
 
-    # Adicionar botão de alteração
     alterar_btn = tk.Button(detalhes_janela, text="Alterar Dados", command=lambda: alterarDados(produto[0]))
     alterar_btn.pack(pady=10)
 
@@ -244,7 +241,6 @@ def verTabela():
 
         tree.bind("<<TreeviewSelect>>", itemSelecionado)
 
-# Função para alterar dados na tabela
 def alterarDados(codigo):
     def submit():
         try:
@@ -310,7 +306,6 @@ def alterarDados(codigo):
 
     tk.Button(alterar_janela, text="Alterar", command=submit).grid(row=len(labels), columnspan=2, pady=10)
 
-# Função para apagar dados da tabela
 def apagarDados():
     def submit():
         try:
@@ -330,7 +325,6 @@ def apagarDados():
 
     tk.Button(apagar_janela, text="Apagar", command=submit).grid(row=1, columnspan=2, pady=10)
 
-# Função principal para criar a interface gráfica
 def criarJanela():
     janela = tk.Tk()
     janela.title("Gerenciador de Produtos")
