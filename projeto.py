@@ -1,111 +1,347 @@
-# Ao definiar uma função, facilitamos o processo de escrever repetidamente os comandos. Uma função pode ter vários comandos;
-# Neste caso, a função linhas() facilita a inserção de linhas de separação, ajudando no entendimento das informações no console.
+import tkinter as tk
+from tkinter import messagebox, Toplevel, Scrollbar
+from tkinter.ttk import Treeview
+import mysql.connector
+from dotenv import load_dotenv
+import os
+
+# Carregar as variáveis de ambiente do arquivo .env
+load_dotenv()
+
 def linhas():
-    print('-'*130)
+    print('-'*190)
 
-# O loop 'while' recebe uma condição, neste caso a condição booleana True;
-# Enquanto a condição for mantida, o loop continuará; Caso a condição seja alterada, o loop será interrompido.
-# A estrutura de controle 'if' recebe condições; 
-# A estrutura 'and' delimita que ambas as condições tenham que ser atendidas para seguir os comandos.
-# A estrutura 'else' delimita que em condições adversas às mencionadas, certos comandos sejam acionados.
-while True:
-    linhas()
-    product_name = input('Insira o nome do produto: ')                                      #PN
-    product_description = input('Insira a descrição do produto: ')                          #PD
-    if product_name.strip() and product_description.strip():                                # .strip() é usado para tirar os espaços em branco.
-        break                                                                               # break é utilizado para quebrar o loop.
+def obtemConexaoComMySQL():
+    servidor = os.getenv("DB_HOST")
+    usuario = os.getenv("DB_USER")
+    senha = os.getenv("DB_PASSWORD")
+    bd = os.getenv("DB_NAME")
+
+    try:
+        conexao = mysql.connector.connect(
+            host=servidor,
+            user=usuario,
+            passwd=senha,
+            database=bd
+        )
+        linhas()
+        print("Conexão ao banco de dados MySQL bem-sucedida!")
+        linhas()
+        return conexao
+    except mysql.connector.Error as e:
+        print("Erro ao conectar ao banco de dados MySQL:", e)
+        return None
+
+def comandoSQL(comando, select=False):
+    conexao = obtemConexaoComMySQL()
+    resultado = None
+    if conexao:
+        try:
+            cursor = conexao.cursor()
+            cursor.execute(comando)
+
+            if select:
+                dadosSelecionados = cursor.fetchall()
+                if dadosSelecionados:
+                    colunas = [i[0] for i in cursor.description]
+                    resultado = (colunas, dadosSelecionados)
+                else:
+                    resultado = "Nenhum dado encontrado na tabela."
+            else:
+                conexao.commit()
+                resultado = "Operação bem-sucedida!"
+            
+        except mysql.connector.Error as e:
+            resultado = f"Erro ao executar comando SQL: {e}"
+
+        finally:
+            if conexao.is_connected():
+                cursor.close()
+                conexao.close()
+                linhas()
+                print("Conexão ao banco de dados MySQL fechada.")
+                linhas()
+    return resultado
+
+def inserirDados():
+    def submit():
+        try:
+            primary_key = int(entry_codigo.get())
+            product_name = entry_nome.get().strip()
+            product_description = entry_descricao.get().strip()
+            product_price = float(entry_custo.get())
+            fixed_price = float(entry_custo_fixo.get())
+            commision = float(entry_comissao.get())
+            taxes = float(entry_impostos.get())
+            rentability = float(entry_rentabilidade.get())
+
+            sale_price = (product_price / (1 - (fixed_price + commision + taxes + rentability) / 100))
+            receita_bruta = sale_price - product_price
+            fixed_price_reais = sale_price * (fixed_price / 100)
+            commision_reais = sale_price * (commision / 100)
+            taxes_reais = sale_price * (taxes / 100)
+            rentability_reais = receita_bruta - (fixed_price_reais + commision_reais + taxes_reais)
+            product_price_percentage = (product_price / sale_price) * 100
+
+            valores = [
+                primary_key,
+                product_name,
+                product_description,
+                product_price,
+                product_price_percentage,
+                fixed_price_reais,
+                fixed_price,
+                commision_reais,
+                commision,
+                taxes_reais,
+                taxes,
+                rentability,
+                rentability_reais,
+                sale_price
+            ]
+
+            comando = f"""
+                INSERT INTO dadosproduto 
+                VALUES (
+                    {primary_key}, '{product_name}', '{product_description}', {product_price}, {product_price_percentage}, 
+                    {fixed_price_reais}, {fixed_price}, {commision_reais}, {commision}, 
+                    {taxes_reais}, {taxes}, {rentability}, {rentability_reais}, {sale_price}
+                )
+            """
+            result = comandoSQL(comando)
+            messagebox.showinfo("Resultado", result)
+            inserir_janela.destroy()
+        except ValueError:
+            messagebox.showerror("Erro", "Erro! Verifique os valores inseridos.")
+
+    inserir_janela = Toplevel()
+    inserir_janela.title("Inserir Dados")
+
+    labels = [
+        "Código do produto", "Nome do produto", "Descrição do produto",
+        "Custo do produto", "Percentual do custo fixo", "Percentual da comissão de vendas",
+        "Percentual de impostos", "Percentual de rentabilidade desejado"
+    ]
+
+    entries = []
+
+    for i, label in enumerate(labels):
+        tk.Label(inserir_janela, text=label).grid(row=i, column=0, padx=10, pady=5)
+        entry = tk.Entry(inserir_janela)
+        entry.grid(row=i, column=1, padx=10, pady=5)
+        entries.append(entry)
+
+    entry_codigo, entry_nome, entry_descricao, entry_custo, entry_custo_fixo, entry_comissao, entry_impostos, entry_rentabilidade = entries
+
+    tk.Button(inserir_janela, text="Inserir", command=submit).grid(row=len(labels), columnspan=2, pady=10)
+
+def classificarRentabilidade(rentabilidade):
+    if rentabilidade > 20:
+        return "Alto Lucro"
+    elif 10 < rentabilidade <= 20:
+        return "Lucro Médio"
+    elif 0 < rentabilidade <= 10:
+        return "Lucro Baixo"
+    elif rentabilidade == 0:
+        return "Equilíbrio"
     else:
-        linhas()
-        print('Erro! Você deve dar um nome e uma descrição ao produto a ser calculado, para isso você deve inserir pelo menos um caracter.')
+        return "Prejuízo"
 
-while True:
-    try:
-        linhas()
-        primary_key = int(input('Insira o código do produto: '))                            #PK
-        break
-    except ValueError:
-        linhas()
-        print('Erro! Você deve inserir o código do produto usando valores numéricos.')
+def exibirClassificacoesRentabilidade(rentabilidade):
+    classificacoes_janela = Toplevel()
+    classificacoes_janela.title("Classificações de Rentabilidade")
 
-while True:
-    try:
-        linhas()
-        product_price = float(input('Insira o custo do produto: '))                         #CP
-        fixed_price = float(input('Insira o percentual do custo fixo: '))                   #CF
-        commision = float(input('Insira o percentual da comissão de vendas: '))             #CV
-        taxes = float(input('Insira o percentual de impostos: '))                           #IV
-        rentability = float(input('Insira o percentual de rentabilidade desejado: '))       #ML
-        break
-    except ValueError:
-        linhas()
-        print('Erro! Você deve inserir o custo do produto usando ponto como virgula; As porcentagens só devem aceitar valores numéricos (sem "%")')
+    tk.Label(classificacoes_janela, text=f"Rentabilidade do Produto: {rentabilidade:.2f}%").pack(pady=10)
 
-sale_price = (product_price / (1 - (fixed_price + commision + taxes + rentability) / 100))      #Fórmula do preço de venda
-receita_bruta = sale_price - product_price                                                      #Fórmula da receita bruta
-fixed_price_reais = sale_price * (fixed_price/100)                                              #Fórmula para calcular o custo fixo em reais
-commision_reais = sale_price * (commision/100)                                                  #Fórmula para calcular a comissão em reais
-taxes_reais = sale_price * (taxes/100)                                                          #Fórmula para calcular impostos em reais
-other_costs_reais = fixed_price_reais + commision_reais + taxes_reais                           #Fórmula para somar os custos em reais
-other_costs = fixed_price + commision + taxes                                                   #Fórmula para somar os custos em porcentagem
-rentability_reais = receita_bruta - other_costs_reais                                           #fórmula para calcular a rentabilidade em reais
-product_price_percentage = (product_price/sale_price)*100                                       #Fórmula para calcular o valor do produto em percentagem
-receita_bruta_percentage = (receita_bruta/sale_price)*100                                       #Fórmula para calcular a receita bruta em porcentagen
+    classificacoes = [
+        ("> 20%", "Alto Lucro", rentabilidade > 20),
+        ("10% - 20%", "Lucro Médio", 10 < rentabilidade <= 20),
+        ("0% - 10%", "Lucro Baixo", 0 < rentabilidade <= 10),
+        ("= 0%", "Equilíbrio", rentabilidade == 0),
+        ("< 0%", "Prejuízo", rentabilidade < 0)
+    ]
 
-# Podemos definir matrizes para fazer tabelas no python.
+    for faixa, descricao, destaque in classificacoes:
+        label_text = f"{faixa}: {descricao}"
+        label = tk.Label(classificacoes_janela, text=label_text)
+        if destaque:
+            label.config(fg="red")
+        label.pack(pady=2)
 
-tabela_valores = [
-    ['Descrição',          'Valores',                            'Porcentagens'],
-    ['Preço de venda',     'R${:.2f}'.format(sale_price),        '100.00%'],
-    ['Custo de Aquisição', 'R${:.2f}'.format(product_price),     '{:.2f}%'.format(product_price_percentage)],  
-    ['Receita bruta',      'R${:.2f}'.format(receita_bruta),     '{:.2f}%'.format(receita_bruta_percentage)], 
-    ['Custo Fixo',         'R${:.2f}'.format(fixed_price_reais), '{:.2f}%'.format(fixed_price)],
-    ['Comissão de vendas', 'R${:.2f}'.format(commision_reais),   '{:.2f}%'.format(commision)],
-    ['Impostos',           'R${:.2f}'.format(taxes_reais),       '{:.2f}%'.format(taxes)],
-    ['Outros custos',      'R${:.2f}'.format(other_costs_reais), '{:.2f}%'.format(other_costs)],
-]
-
-linhas()
-# Loop onde cada coluna da matriz será printada no console.
-for item in tabela_valores:
-    print(':',
-        item[0],' '*(18-len(item[0])) + ':',                                                    # (x - len(item[y])) é uma fórmula que calcula quantos espaços em branco devem ser printados    
-        item[1],' '*(7-len(item[1]))  + ':',                                                    # sendo 'x' o tamanho máximo da coluna, 'y' o index number da coluna da matriz a ser formatada
-        item[2],' '*(12-len(item[2])) + ':')                                                    # e o comando len() serve para receber o tamanho da string e usá-lo na fórmula.
-
-tabela_lucros = [
-    ['Classificação', 'Lucro'],
-    ['Alto', '>  20%'],
-    ['Médio', '>  10% ; <= 20%'],
-    ['Baixo', '>  0% ; <= 10%'],
-    ['Equilíbrio', '=  0%'],
-    ['Prejuízo', '<  0%'],
-]
-
-linhas()
-
-print('Seguindo a seguinte tabela de lucros: ')
-
-linhas()
-
-for item in tabela_lucros:
-    print(':',
-          item[0],' '*(13-len(item[0])) + ':',
-          item[1],' '*(15-len(item[1])) + ':'
-          )
-
-if rentability > 20:
-    lucro = 'alto'
-if rentability > 10 and rentability <= 20:
-    lucro = 'médio'
-if rentability > 0 and rentability <= 10:
-    lucro = 'baixo'
-if rentability == 0:
-    lucro = 'nulo'
-if rentability < 0:
-    lucro = 'prejuízo'
+def exibirDetalhesProduto(produto):
+    detalhes_janela = Toplevel()
+    detalhes_janela.title("Detalhes do Produto")
     
-linhas() 
+    colunas = ["Descrição", "Valor", "%"]
+    receita_bruta = float(produto[13]) - float(produto[3])
+    detalhes = [
+        ("Preço de Venda", produto[13], "100%"),
+        ("Custo de Aquisição (Fornecedor)", produto[3], f"{float(produto[4]):.2f}%"),
+        ("Receita Bruta (A-B)", f"{receita_bruta:.2f}", f"{100 - float(produto[4]):.2f}%"),
+        ("Custo Fixo/Administrativo", produto[5], f"{float(produto[6]):.2f}%"),
+        ("Comissão de Vendas", produto[7], f"{float(produto[8]):.2f}%"),
+        ("Impostos", produto[9], f"{float(produto[10]):.2f}%"),
+        ("Outros custos (D+E+F)", float(produto[5]) + float(produto[7]) + float(produto[9]), f"{float(produto[6]) + float(produto[8]) + float(produto[10]):.2f}%"),
+        ("Rentabilidade (C-G)", produto[12], f"{float(produto[11]):.2f}%")
+    ]
 
-print('O lucro do produto {} é classificado como {}.'.format(product_name.capitalize(), lucro))
+    tree = Treeview(detalhes_janela, columns=colunas, show='headings')
+    tree.pack(side='left', fill='both', expand=True)
 
-linhas()
+    for col in colunas:
+        tree.heading(col, text=col)
+        tree.column(col, anchor='w', width=200)
+
+    for detalhe in detalhes:
+        tree.insert("", "end", values=detalhe)
+
+    scrollbar = Scrollbar(detalhes_janela, orient='vertical', command=tree.yview)
+    tree.configure(yscroll=scrollbar.set)
+    scrollbar.pack(side='right', fill='y')
+
+    # Adicionar evento de clique na rentabilidade
+    def rentabilidadeClick(event):
+        item = tree.selection()
+        if item:
+            valor = tree.item(item[0])['values']
+            if valor[0].startswith("Rentabilidade"):
+                rentabilidade = float(produto[11])
+                exibirClassificacoesRentabilidade(rentabilidade)
+
+    tree.bind("<Double-1>", rentabilidadeClick)
+
+    # Adicionar botão de alteração
+    alterar_btn = tk.Button(detalhes_janela, text="Alterar Dados", command=lambda: alterarDados(produto[0]))
+    alterar_btn.pack(pady=10)
+
+def verTabela():
+    resultado = comandoSQL("SELECT * FROM dadosproduto", select=True)
+    
+    if isinstance(resultado, tuple):
+        colunas, dadosSelecionados = resultado
+
+        tabela_janela = Toplevel()
+        tabela_janela.title("Tabela de Produtos")
+        tree = Treeview(tabela_janela, columns=colunas, show='headings')
+        tree.pack(side='left', fill='both', expand=True)
+
+        for col in colunas:
+            tree.heading(col, text=col)
+            tree.column(col, anchor='w', width=100)
+
+        for linha in dadosSelecionados:
+            tree.insert("", "end", values=linha)
+
+        scrollbar = Scrollbar(tabela_janela, orient='vertical', command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
+
+        def itemSelecionado(event):
+            item = tree.selection()
+            if item:
+                produto = tree.item(item[0])['values']
+                exibirDetalhesProduto(produto)
+
+        tree.bind("<<TreeviewSelect>>", itemSelecionado)
+
+# Função para alterar dados na tabela
+def alterarDados(codigo):
+    def submit():
+        try:
+            product_name = entry_nome.get().strip()
+            product_description = entry_descricao.get().strip()
+            product_price = float(entry_custo.get())
+            fixed_price = float(entry_custo_fixo.get())
+            commision = float(entry_comissao.get())
+            taxes = float(entry_impostos.get())
+            rentability = float(entry_rentabilidade.get())
+
+            sale_price = (product_price / (1 - (fixed_price + commision + taxes + rentability) / 100))
+            receita_bruta = sale_price - product_price
+            fixed_price_reais = sale_price * (fixed_price / 100)
+            commision_reais = sale_price * (commision / 100)
+            taxes_reais = sale_price * (taxes / 100)
+            rentability_reais = receita_bruta - (fixed_price_reais + commision_reais + taxes_reais)
+            product_price_percentage = (product_price / sale_price) * 100
+
+            comando = f"""
+                UPDATE dadosProduto
+                SET 
+                    nome = '{product_name}', 
+                    descricao = '{product_description}', 
+                    custo = {product_price}, 
+                    custo_prc = {product_price_percentage}, 
+                    custo_fixo = {fixed_price_reais}, 
+                    fixo_prc = {fixed_price}, 
+                    comissao = {commision_reais}, 
+                    comissao_prc = {commision}, 
+                    impostos = {taxes_reais}, 
+                    impostos_prc = {taxes}, 
+                    rentabilidade = {rentability}, 
+                    rentabilidade_reais = {rentability_reais}, 
+                    preco_venda = {sale_price}
+                WHERE codigo = {codigo}
+            """
+
+            result = comandoSQL(comando)
+            messagebox.showinfo("Resultado", result)
+            alterar_janela.destroy()
+        except ValueError:
+            messagebox.showerror("Erro", "Erro! Verifique os valores inseridos.")
+            
+    alterar_janela = Toplevel()
+    alterar_janela.title("Alterar Dados")
+
+    labels = [
+        "Nome do produto", "Descrição do produto",
+        "Custo do produto", "Percentual do custo fixo", "Percentual da comissão de vendas",
+        "Percentual de impostos", "Percentual de rentabilidade desejado"
+    ]
+
+    entries = []
+
+    for i, label in enumerate(labels):
+        tk.Label(alterar_janela, text=label).grid(row=i, column=0, padx=10, pady=5)
+        entry = tk.Entry(alterar_janela)
+        entry.grid(row=i, column=1, padx=10, pady=5)
+        entries.append(entry)
+
+    entry_nome, entry_descricao, entry_custo, entry_custo_fixo, entry_comissao, entry_impostos, entry_rentabilidade = entries
+
+    tk.Button(alterar_janela, text="Alterar", command=submit).grid(row=len(labels), columnspan=2, pady=10)
+
+# Função para apagar dados da tabela
+def apagarDados():
+    def submit():
+        try:
+            valor = int(entry_codigo.get())
+            result = comandoSQL(f'DELETE FROM dadosproduto WHERE codigo = {valor}')
+            messagebox.showinfo("Resultado", result)
+            apagar_janela.destroy()
+        except ValueError:
+            messagebox.showerror("Erro", "Erro! Verifique os valores inseridos.")
+    
+    apagar_janela = Toplevel()
+    apagar_janela.title("Apagar Dados")
+
+    tk.Label(apagar_janela, text="Código do produto").grid(row=0, column=0, padx=10, pady=5)
+    entry_codigo = tk.Entry(apagar_janela)
+    entry_codigo.grid(row=0, column=1, padx=10, pady=5)
+
+    tk.Button(apagar_janela, text="Apagar", command=submit).grid(row=1, columnspan=2, pady=10)
+
+# Função principal para criar a interface gráfica
+def criarJanela():
+    janela = tk.Tk()
+    janela.title("Gerenciador de Produtos")
+    janela.geometry("300x200")
+
+    tk.Button(janela, text="Ver Tabela", width=20, command=verTabela).pack(pady=10)
+    tk.Button(janela, text="Inserir Dados", width=20, command=inserirDados).pack(pady=10)
+    tk.Button(janela, text="Apagar Dados", width=20, command=apagarDados).pack(pady=10)
+    tk.Button(janela, text="Sair", width=20, command=janela.quit).pack(pady=10)
+
+    janela.mainloop()
+
+if __name__ == "__main__":
+    criarJanela()
